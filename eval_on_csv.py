@@ -7,6 +7,21 @@ from config import *
 import csv
 from keras.preprocessing.sequence import pad_sequences
 
+def softmax_over_time(x):
+  assert(K.ndim(x) > 2)
+  e = K.exp(x - K.max(x, axis=1, keepdims=True))
+  s = K.sum(e, axis=1, keepdims=True)
+  return e / s
+
+
+
+enc_model = load_model('cpu/enc_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
+dec_model = load_model('cpu/dec_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
+token = pickle.load(open('cpu/token_v2.pkl','rb'))
+word_to_index = token.word_index
+enc_model._make_predict_function()
+dec_model._make_predict_function()
+    
 
 ordinal_mappings = { 
         '':1, '--':2, 'Chc':3, 
@@ -48,19 +63,11 @@ def preprocess_features(feature):
 
 
 
-def softmax_over_time(x):
-  assert(K.ndim(x) > 2)
-  e = K.exp(x - K.max(x, axis=1, keepdims=True))
-  s = K.sum(e, axis=1, keepdims=True)
-  return e / s
+
 
 
 
 def decode_sequence(input_seq):
-    enc_model = load_model('cpu/enc_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
-    dec_model = load_model('cpu/dec_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
-    token = pickle.load(open('cpu/token_v2.pkl','rb'))
-    word_to_index = token.word_index
     index_to_word = {v:k for k,v in word_to_index.items()}
     input_seq = input_seq.reshape(1,MAX_LEN_INPUT)
     enc_out = enc_model.predict(input_seq)
@@ -89,4 +96,6 @@ def get_prediction_on_csv(path):
     print(test_input)
     test_input = pad_sequences([test_input],maxlen=MAX_LEN_INPUT,padding='post')
     pred_output = decode_sequence(test_input)
+    print(pred_output)
     return pred_output
+

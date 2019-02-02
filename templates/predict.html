@@ -1,14 +1,42 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+
+        <!-- jQuery library -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+        <!-- Popper JS -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js"></script>
+
+        <!-- Latest compiled JavaScript -->
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js"></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    
+
+   </head>
    <body>
-       <h1>Natural Language Generation</h1>
-       <br>
-      <form action = "/predict" method = "POST" enctype = "multipart/form-data">
-         <input type = "file" name = "file" />
-         <input type = "submit"/>
-      </form>
+        <nav class="navbar navbar-expand-sm bg-primary navbar-dark justify-content-center">
+                <a class="navbar-brand" href="#">Natural Language Generation Demo</a>
+        </nav>
+       
+        <div class="jumbotron jumbotron-fluid">
+            <div class="container offset-md-4">
+                <h3>Select a csv file containing structured data</h3>
+                <form action = "/predict" method = "POST" enctype = "multipart/form-data">
+                    <input type = "file" name = "file" /><br><br>
+                    <button class="btn btn-primary" type="submit">Submit</button>
+                </form>
+            </div>
+        </div>
       <br>
-      <h2>Predicted Output</h2><br>
-      <h4>{{ prediction }}</h4>
+      <div class="offset-md-3">
+      <blockquote class="blockquote">
+            <p class="display-6">{{ prediction }}</p>
+            <footer class="blockquote-footer">Deep Learning Model</footer>
+      </blockquote>
+      </div>
+     
    </body>
 </html>
