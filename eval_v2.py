@@ -31,13 +31,13 @@ def softmax_over_time(x):
   s = K.sum(e, axis=1, keepdims=True)
   return e / s
 
-enc_model = load_model('enc_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
-dec_model = load_model('dec_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
+enc_model = load_model('cpu/enc_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
+dec_model = load_model('cpu/dec_model.h5',custom_objects = {'softmax_over_time':softmax_over_time,'t':0})
 
 
 
-token = pickle.load(open('token_v2.pkl','rb'))
-testdata = pickle.load(open('testdata_v2.pkl','rb'))
+token = pickle.load(open('cpu/token_v2.pkl','rb'))
+testdata = pickle.load(open('cpu/testdata_v2.pkl','rb'))
 encoder_input,decoder_input,decoder_true_input = testdata
 word_to_index = token.word_index
 index_to_word = {v:k for k,v in word_to_index.items()}
@@ -69,18 +69,18 @@ def decode_sequence(input_seq):
 preds = []
 references = []
 num_samples = encoder_input.shape[0]
-for i in range(num_samples):
+for i in range(5):
   test_input = encoder_input[i]
   true_output = decoder_true_input[i]
   pred_output = decode_sequence(test_input)
   #print("================================================================")
-  #print("Test Input :",test_input)
+  print("Test Input :",test_input)
   #print("------------------------------")
   true_output_text = " ".join([index_to_word[x] for x in true_output if x > 0])
   true_output_text = " ".join(true_output_text.split()[:-1])
-  #print("True Output :",true_output_text)
+  print("True Output :",true_output_text)
   #print("-----------------------------------")
-  #print("Predicted Output:",pred_output)
+  print("Predicted Output:",pred_output)
   #print(i)
   preds.append(pred_output)
   references.append(true_output_text)

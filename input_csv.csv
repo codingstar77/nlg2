@@ -1,7 +1,7 @@
 temperature.time,6-21
-temperature.min,47
-temperature.mean,59
-temperature.max,69
+temperature.min,10
+temperature.mean,20
+temperature.max,30
 windChill.time,6-21
 windChill.min,0
 windChill.mean,7
@@ -11,7 +11,7 @@ windSpeed.min,7
 windSpeed.mean,13
 windSpeed.max,18
 windDir.time,6-21
-windDir.mode,SSW
+windDir.mode,SSE
 gust.time,6-21
 gust.min,0
 gust.mean,15
