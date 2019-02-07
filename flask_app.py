@@ -3,12 +3,6 @@ from keras.models import load_model
 from eval_on_csv import get_prediction_on_csv,softmax_over_time
 import pickle
 
-
-
-
-
-
-
 import os
 app = Flask(__name__)
 
@@ -33,3 +27,5 @@ def predict():
 if __name__ == '__main__':
     
     app.run(debug = True)
+
+

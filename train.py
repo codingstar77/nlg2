@@ -13,8 +13,6 @@ from config import *
 
 
 
-if len(K.tensorflow_backend._get_available_gpus()) > 0:
-  from keras.layers import CuDNNLSTM as LSTM
 
 #Paths
 EVENTS_DATASET_PATH = './nlg/dataset/all.events'
@@ -52,8 +50,7 @@ def softmax_over_time(x):
   return e / s
 
 
-if len(K.tensorflow_backend._get_available_gpus()) > 0:
-  from keras.layers import CuDNNLSTM as LSTM
+
 
 
 def preprocess_features(feature):
