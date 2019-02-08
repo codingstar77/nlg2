@@ -14,8 +14,8 @@ windDir.time,6-21
 windDir.mode,SSE
 gust.time,6-21
 gust.min,0
-gust.mean,15
-gust.max,45
+gust.mean,10
+gust.max,20
 skyCover.time,6-21
 skyCover.time,6-9
 skyCover.time,6-13
