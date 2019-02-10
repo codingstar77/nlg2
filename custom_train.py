@@ -53,9 +53,10 @@ class CustomTrainer:
                     self.index += 1
                     self.categorical_mappings[key][value] = self.index
         #create training data
-        self.train_x = []
-        self.train_y = []
-        for record,label in list(zip(self.input_data,self.labels)):
+        self.encoder_input = []
+        self.decoder_input = []
+        self.decoder_true_label = []
+        for record,label in zip(self.input_data,self.labels):
             try:
                 temp = []
                 for key,val in record.items():
@@ -71,30 +72,129 @@ class CustomTrainer:
                                 raise Exception
                         elif self.metadata[key]['variable_type'] == 'numerical':
                             temp.append(val)
-                self.train_x.append(temp)
-                self.train_y.append(label)
+                self.encoder_input.append(temp)
+                self.decoder_input.append('startseq '+label)
+                self.decoder_true_label.append(label+' endseq')
             except Exception:
                     pass
-        self.max_input_len = max([len(record) for record in self.train_x])
-        self.max_output_len = max([len(record.split()) for record in self.train_y])
-        
-
-
-
-
-
-
-
-
-
-        
-        
-        
-                    
-
-
-            
-            
+        self.max_input_len = max([len(record) for record in self.decoder_input])
+        self.max_output_len = max([len(record.split()) for record in self.decoder_input])
+        #configs
+        self.hidden_dimesion = self.max_input_len * 2
+        self.embedding_dimension = 128
+        self.batch_size = 128
+        self.epochs = 100
+        self.tokenizer = Tokenizer()
+        self.tokenizer.fit_on_texts(self.decoder_input + self.decoder_true_label)
+        self.decoder_input = self.tokenizer.texts_to_sequences(self.decoder_input)
+        self.decoder_true_label = self.tokenizer.texts_to_sequences(self.decoder_true_label)
+        self.encoder_input = pad_sequences(self.encoder_input,maxlen=self.max_input_len,padding='post')
+        self.decoder_input = pad_sequences(self.decoder_input,maxlen=self.max_output_len,padding='post')
+        self.decoder_true_label = pad_sequences(self.decoder_true_label,maxlen=self.max_output_len,padding='post')
+        self.decoder_true_label = to_categorical(self.decoder_true_label)
+        self.vocab_size = self.decoder_true_label.shape[2]
+        self.model = self.get_model()
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        self.is_trained = False
     
+    def start_training(self):
+        z = np.zeros((self.encoder_input.shape[0], self.hidden_dimesion))
+        self.training_output = self.model.fit(
+        [self.encoder_input, self.decoder_input, z, z], self.decoder_true_label,
+        batch_size=self.batch_size,
+        epochs=self.epochs,
+        validation_split=0.1,
+        verbose = 1
+        )
+
+    @staticmethod
+    def softmax_over_time(x):
+        assert(K.ndim(x) > 2)
+        e = K.exp(x - K.max(x, axis=1, keepdims=True))
+        s = K.sum(e, axis=1, keepdims=True)
+        return e / s
+
+    def get_model(self):
+        '''
+        Creates And Returns the model
+        '''
+        def stack_and_transpose(x):
+            x = K.stack(x) 
+            return K.permute_dimensions(x, pattern=(1, 0, 2))
+        def one_step_attention(h, st_1):
+            st_1 = attn_repeat_layer(st_1)
+            x = attn_concat_layer([h, st_1])
+            x = attn_dense1(x)
+            alphas = attn_dense2(x)
+            context = attn_dot([alphas, h])
+            return context
+        encoder_input_layer = Input(shape=(self.max_input_len,))
+        reshape_layer = Reshape((self.max_input_len,1))
+        reshaped_input = reshape_layer(encoder_input_layer)
+        encoder_layer = Bidirectional(LSTM(self.hidden_dimesion,return_sequences=True))
+        encoder_outputs = encoder_layer(reshaped_input)
+        decoder_input_layer = Input(shape=(self.max_output_len,))
+        decoder_embedding = Embedding(self.vocab_size,self.embedding_dimension)
+        decoder_inputs_x = decoder_embedding(decoder_input_layer)
+        attn_repeat_layer = RepeatVector(self.max_input_len)
+        attn_concat_layer = Concatenate(axis=-1)
+        attn_dense1 = Dense(10, activation='tanh')
+        attn_dense2 = Dense(1, activation=self.softmax_over_time)
+        attn_dot = Dot(axes=1) 
+        decoder_lstm = LSTM(self.hidden_dimesion, return_state=True)
+        decoder_dense = Dense(self.vocab_size, activation='softmax')
+        initial_s = Input(shape=(self.hidden_dimesion,), name='s0')
+        initial_c = Input(shape=(self.hidden_dimesion,), name='c0')
+        context_last_word_concat_layer = Concatenate(axis=2)
+        s = initial_s
+        c = initial_c
+        outputs = []
+        t = 0
+        while True:
+            context = one_step_attention(encoder_outputs, s)
+            selector = Lambda(lambda x: x[:, t:t+1])
+            xt = selector(decoder_inputs_x)
+            decoder_lstm_input = context_last_word_concat_layer([context, xt])
+            o, s, c = decoder_lstm(decoder_lstm_input, initial_state=[s, c])
+            decoder_outputs = decoder_dense(o)
+            outputs.append(decoder_outputs)
+            t+=1
+            if t >= self.max_output_len:
+                break
+        stacker = Lambda(stack_and_transpose)
+        outputs = stacker(outputs)
+
+        model = Model(
+        inputs=[
+            encoder_input_layer,
+            decoder_input_layer,
+            initial_s, 
+            initial_c,
+        ],
+        outputs=outputs
+        )
+        return model
+        
+        
+
+    
+
+
+
+
+
+
+
+
+
+                    
+                    
+            
+                        
+
+
+                
+                
+        
     
 
