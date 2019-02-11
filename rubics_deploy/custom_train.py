@@ -6,6 +6,7 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.callbacks import EarlyStopping
 import keras.backend as K
+from keras.models import load_model
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,6 +15,7 @@ import random
 class CustomTrainer:
     def __init__(
         self,
+        project_id,
         input_data,
         labels,
         metadata
@@ -21,6 +23,8 @@ class CustomTrainer:
         '''
         Constructor for class CustomTrainer
         #Arguments
+        project_id:
+            unique ID assigned for this model project
         input_data:
             It is list of OrderedDict where each orderedDict represents
             a record or data instance.Each OrderedDict Contains keys as 
@@ -41,6 +45,7 @@ class CustomTrainer:
         assert list(set(keys_list)) == list(metadata.keys())
         self.input_data = input_data
         self.labels = labels
+        self.project_id = project_id
         self.metadata = metadata
         self.categorical_mappings = {}
         self.categorical_mappings['--'] = 0
@@ -119,6 +124,8 @@ class CustomTrainer:
         verbose = 1,
         callbacks=[cb]
         )
+        self.enc_model.save(str(self.project_id)+"_enc_model.h5")
+        self.dec_model.save(str(self.project_id)+"_dec_model.h5")
         self.is_trained = True
 
 
@@ -129,6 +136,10 @@ class CustomTrainer:
         '''
         if not self.is_trained:
             raise Exception("This Model is not Trained Yet")
+        self.enc_model = load_model(str(self.project_id)+"_enc_model.h5",custom_objects = {'softmax_over_time':self.softmax_over_time,'t':0})
+        self.dec_model = load_model(str(self.project_id)+"_dec_model.h5",custom_objects = {'softmax_over_time':self.softmax_over_time,'t':0})
+        self.enc_model._make_predict_function()
+        self.dec_model._make_predict_function()
         test_input = self.preprocess_input_record(input_data)
         test_input = pad_sequences([test_input],maxlen=self.max_input_len,padding='post')
         pred_output = self.decode_sequence(test_input)
