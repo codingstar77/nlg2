@@ -4,6 +4,7 @@ from keras.layers import LSTM,Dense,Bidirectional,Concatenate,Dot,Input,Lambda,R
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
+from keras.callbacks import EarlyStopping
 import keras.backend as K
 import pickle
 import numpy as np
@@ -58,20 +59,7 @@ class CustomTrainer:
         self.decoder_true_label = []
         for record,label in zip(self.input_data,self.labels):
             try:
-                temp = []
-                for key,val in record.items():
-                        if key in self.categorical_mappings:
-                            temp.append(self.categorical_mappings[key][val])
-                        elif self.metadata[key]['data_type'] == 'date':
-                            val = val.split('-')
-                            if len(val) == 3:
-                                temp.append(int(val[0]))
-                                temp.append(int(val[1]))
-                                temp.append(int(val[2]))
-                            else:
-                                raise Exception
-                        elif self.metadata[key]['variable_type'] == 'numerical':
-                            temp.append(val)
+                temp = self.preprocess_input_record(record)
                 self.encoder_input.append(temp)
                 self.decoder_input.append('startseq '+label)
                 self.decoder_true_label.append(label+' endseq')
@@ -80,10 +68,12 @@ class CustomTrainer:
         self.max_input_len = max([len(record) for record in self.decoder_input])
         self.max_output_len = max([len(record.split()) for record in self.decoder_input])
         #configs
+        #==================================
         self.hidden_dimesion = self.max_input_len * 2
         self.embedding_dimension = 128
         self.batch_size = 128
-        self.epochs = 100
+        self.epochs = 500
+        #==================================
         self.tokenizer = Tokenizer()
         self.tokenizer.fit_on_texts(self.decoder_input + self.decoder_true_label)
         self.decoder_input = self.tokenizer.texts_to_sequences(self.decoder_input)
@@ -93,19 +83,84 @@ class CustomTrainer:
         self.decoder_true_label = pad_sequences(self.decoder_true_label,maxlen=self.max_output_len,padding='post')
         self.decoder_true_label = to_categorical(self.decoder_true_label)
         self.vocab_size = self.decoder_true_label.shape[2]
-        self.model = self.get_model()
+        self.model,self.enc_model,self.dec_model = self.get_model() #create models
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         self.is_trained = False
     
+    def preprocess_input_record(self,record):
+        '''
+        Record is a OrderedDict Representing one input
+        data instance
+        '''
+        temp = []
+        for key,val in record.items():
+            if key in self.categorical_mappings:
+                temp.append(self.categorical_mappings[key][val])
+            elif self.metadata[key]['data_type'] == 'date':
+                val = val.split('-')
+                if len(val) == 3:
+                    temp.append(int(val[0]))
+                    temp.append(int(val[1]))
+                    temp.append(int(val[2]))
+                else:
+                    raise Exception
+            elif self.metadata[key]['variable_type'] == 'numerical':
+                temp.append(val)
+        return temp
+
     def start_training(self):
         z = np.zeros((self.encoder_input.shape[0], self.hidden_dimesion))
+        cb = EarlyStopping(monitor='val_loss',mode='min',patience=10,min_delta=0.01)
         self.training_output = self.model.fit(
         [self.encoder_input, self.decoder_input, z, z], self.decoder_true_label,
         batch_size=self.batch_size,
         epochs=self.epochs,
         validation_split=0.1,
-        verbose = 1
+        verbose = 1,
+        callbacks=[cb]
         )
+        self.is_trained = True
+
+
+    def predict(self,input_data):
+        '''
+        Input data represents a OrderDict on which we need to run
+        the model and get the prediction
+        '''
+        if not self.is_trained:
+            raise Exception("This Model is not Trained Yet")
+        test_input = self.preprocess_input_record(input_data)
+        test_input = pad_sequences([test_input],maxlen=self.max_input_len,padding='post')
+        pred_output = self.decode_sequence(test_input)
+        return pred_output
+
+    def save(self,filepath):
+        with open(filepath,'wb') as f:
+            pickle.dump(self,f)
+
+    def decode_sequence(self,input_seq):
+        word_to_index = self.tokenizer.word_index
+        index_to_word = {v:k for k,v in word_to_index.items()}
+        input_seq = input_seq.reshape(1,self.max_input_len)
+        enc_out = self.enc_model.predict(input_seq)
+        target_seq = np.zeros((1, 1))
+        target_seq[0, 0] = word_to_index['startseq']
+        eos = word_to_index['endseq']
+        s = np.zeros((1, self.hidden_dimesion))
+        c = np.zeros((1, self.hidden_dimesion))
+        output_sentence = []
+        for _ in range(self.max_input_len):
+            o, s, c = self.dec_model.predict([target_seq, enc_out, s, c])  
+            idx = np.argmax(o.flatten())
+            if eos == idx:
+                break
+            word = ''
+            if idx > 0:
+                word = index_to_word[idx]
+                output_sentence.append(word)
+            target_seq[0, 0] = idx
+
+        return ' '.join(output_sentence)
 
     @staticmethod
     def softmax_over_time(x):
@@ -173,11 +228,28 @@ class CustomTrainer:
         ],
         outputs=outputs
         )
-        return model
-        
-        
+        enc_model = Model(encoder_input_layer, encoder_outputs)
+        encoder_outputs_as_input = Input(shape=(self.max_input_len, self.hidden_dimesion * 2,))
+        decoder_inputs_single = Input(shape=(1,))
+        decoder_inputs_single_x = decoder_embedding(decoder_inputs_single)
+        context = one_step_attention(encoder_outputs_as_input, initial_s)
+        decoder_lstm_input = context_last_word_concat_layer([context, decoder_inputs_single_x])
+        o, s, c = decoder_lstm(decoder_lstm_input, initial_state=[initial_s, initial_c])
+        decoder_outputs = decoder_dense(o)
+        dec_model = Model(
+        inputs=[
+            decoder_inputs_single,
+            encoder_outputs_as_input,
+            initial_s, 
+            initial_c
+        ],
+        outputs=[decoder_outputs, s, c]
+        )
+        return model,enc_model,dec_model
+                
+                
 
-    
+            
 
 
 
