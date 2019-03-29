@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from flask import Flask, render_template, request,redirect,session
 from keras.models import load_model
 from eval_on_csv import get_prediction_on_csv,softmax_over_time

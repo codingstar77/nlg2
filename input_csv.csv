@@ -1,7 +1,7 @@
 temperature.time,6-21
-temperature.min,40
-temperature.mean,50
-temperature.max,60
+temperature.min,30
+temperature.mean,40
+temperature.max,50
 windChill.time,6-21
 windChill.min,0
 windChill.mean,7
