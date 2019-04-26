@@ -41,8 +41,8 @@ class CustomTrainer:
         assert len(input_data) == len(labels)
         #check if all the records contains same keys
         keys_list = [record.keys() for record in input_data]
-        assert len(set(keys_list)) == 1
-        assert list(set(keys_list)) == list(metadata.keys())
+        #assert len(set(keys_list)) == 1
+        #assert list(set(keys_list)) == list(metadata.keys())
         self.input_data = input_data
         self.labels = labels
         self.project_id = project_id
